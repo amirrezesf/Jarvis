@@ -203,6 +203,62 @@ def _run_terminal_voice() -> None:
     except KeyboardInterrupt:
         print("\nBye.")
 
+def _split_segments(text: str) -> list[str]:
+    """Split a transcript file into sentence-level segments for testing."""
+    import re
+
+    parts: list[str] = []
+    for line in text.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        # Persian and Latin sentence terminators.
+        for piece in re.split(r"[.؟!?]+", line):
+            piece = piece.strip()
+            if piece:
+                parts.append(piece)
+    return parts
+
+
+def _run_trigger_test(path: str) -> None:
+    from core.logger import setup_logging
+    from core.triggers import NameDetector
+
+    setup_logging()
+
+    with open(path, encoding="utf-8") as fh:
+        text = fh.read()
+
+    segments = _split_segments(text)
+    detector = NameDetector()
+
+    print(f"File:      {path}")
+    print(f"Segments:  {len(segments)}")
+    print(
+        f"Threshold: fired >= {detector.threshold}, "
+        f"candidates >= {detector.candidate_threshold}"
+    )
+    print(f"Variants:  {len(detector.variants)}")
+    print("-" * 72)
+
+    fired_count = 0
+    candidate_count = 0
+
+    for i, segment in enumerate(segments, 1):
+        debug = "--all" in sys.argv
+        events = detector.scan(segment, return_all=debug)
+        for ev in events:
+            candidate_count += 1
+            tag = "FIRED" if ev.fired else "cand "
+            if ev.fired:
+                fired_count += 1
+            print(f"[{i:>4}] {tag}  score={ev.score:5.1f}  variant={ev.matched_variant!r}")
+            print(f"        evidence: {ev.evidence!r}")
+            print(f"        context:  {ev.context[:110]}")
+
+    print("-" * 72)
+    print(f"Fired:                {fired_count}")
+    print(f"Candidates (total):   {candidate_count}")
 
 def main() -> None:
     args = sys.argv[1:]
@@ -218,6 +274,12 @@ def main() -> None:
             print("Usage: python main.py --file <path>")
             sys.exit(1)
         _run_file_mode(args[idx + 1])
+    elif "--trigger-test" in args:
+        idx = args.index("--trigger-test")
+        if idx + 1 >= len(args):
+            print("Usage: python main.py --trigger-test <transcript.txt>")
+            sys.exit(1)
+        _run_trigger_test(args[idx + 1])
     else:
         _run_ui()
 

@@ -73,3 +73,28 @@ VAD_MIN_SILENCE_MS = 700     # silence needed to close a segment
 VAD_MIN_SPEECH_S = 0.6       # discard segments shorter than this
 VAD_MAX_SEGMENT_S = 45.0     # force-close a segment at this length. 60 for large-v3
 VAD_BLOCK_MS = 32            # VAD frame size (512 samples @ 16 kHz)
+
+
+# ---------------------------------------------------------------------------
+# Trigger detection: name matching
+# ---------------------------------------------------------------------------
+# Persian spelling variants of the user's name. The detector normalizes
+# these once at startup (Arabic ي -> Persian ی, ZWNJ -> space, etc.).
+NAME_VARIANTS = [
+    "امیررضا اسفندیاری",
+    "امیر رضا اسفندیاری",
+    "اسفندیاری",
+]
+
+# 0-100. Higher = stricter = fewer false positives.
+# 80 is a starting point; tune after testing on real recordings.
+NAME_MATCH_THRESHOLD = 80
+
+# Below this, candidates are ignored entirely (not even logged).
+# Between this and NAME_MATCH_THRESHOLD, they are logged but not fired.
+NAME_MATCH_CANDIDATE_THRESHOLD = 65
+
+# Variants shorter than this many characters are skipped entirely,
+# to avoid matches on short common words.
+NAME_MATCH_MIN_LENGTH = 4
+NAME_BUFFER_SEGMENTS = 3
