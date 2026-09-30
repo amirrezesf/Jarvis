@@ -4,9 +4,7 @@ Session logging.
 Writes:
     logs/sessions/<YYYY-MM-DD>.jsonl    one line per completed turn
 
-Audio is intentionally not persisted. Only the transcript, the reply,
-and timing metadata are written, which is enough to audit turns and
-to tune transcription options against the text.
+Audio is intentionally not persisted.
 """
 
 from __future__ import annotations
@@ -35,9 +33,9 @@ class SessionRecorder:
         transcript: Transcript | None,
         reply: str | None,
         agent_seconds: float | None,
+        agent_first_token_seconds: float | None = None,
         error: str | None = None,
     ) -> None:
-        """Append one JSON line to today's session file."""
         now = datetime.now().astimezone()
 
         entry = {
@@ -51,6 +49,11 @@ class SessionRecorder:
             "agent_reply": reply,
             "agent_seconds": (
                 round(agent_seconds, 3) if agent_seconds is not None else None
+            ),
+            "agent_first_token_seconds": (
+                round(agent_first_token_seconds, 3)
+                if agent_first_token_seconds is not None
+                else None
             ),
             "error": error,
         }
