@@ -3,6 +3,7 @@ import time
 from faster_whisper import WhisperModel
 
 import config
+from core import corrections
 from core.events import Utterance, Transcript
 
 
@@ -23,6 +24,8 @@ class Transcriber:
             condition_on_previous_text=config.CONDITION_ON_PREVIOUS_TEXT,
             vad_filter=config.VAD_FILTER,
             initial_prompt=config.INITIAL_PROMPT or None,
+            hotwords=config.HOTWORDS or None,
         )
         text = " ".join(s.text.strip() for s in segs)
+        text = corrections.apply(text)
         return Transcript(text, utt.source, time.time() - t0)

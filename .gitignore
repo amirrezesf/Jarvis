@@ -5,3 +5,6 @@ __pycache__/
 *.pyc
 venv/
 export.txt
+*.mp3
+*.wav
+*.mp4

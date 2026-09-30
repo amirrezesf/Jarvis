@@ -1,6 +1,6 @@
 WHISPER_MODEL = "large-v3-turbo"
 DEVICE = "cuda"
-COMPUTE_TYPE = "float16"
+COMPUTE_TYPE = "float16" #int8_float16 for large-v3
 LANGUAGE = 'fa'          # "en" / "fa" to force
 SAMPLE_RATE = 16000
 PTT_KEY = "right ctrl"
@@ -43,10 +43,33 @@ BEAM_SIZE = 5
 CONDITION_ON_PREVIOUS_TEXT = False
 VAD_FILTER = True
 
-# Seeded into Whisper to bias spelling of names and jargon. Keep it short;
-# long prompts slow decoding slightly and over-bias the model.
-# Edit this to match how you actually say things.
+# Seeded into Whisper to bias spelling and terminology. Keep it short
+# (~200 tokens max); long prompts slow decoding and over-bias the model.
 INITIAL_PROMPT = (
-    "این گفتگویی است با امیررضا اسفندیاری. "
-    "واژه‌های مهم: HIT، اسکای‌روم، SkyroomBot، Jarvis، Whisper."
+    "این یک جلسه درسی دانشگاهی به زبان فارسی است. "
+    "واژه‌های مهم: امیررضا اسفندیاری، HIT، اسکای‌روم، SkyroomBot."
 )
+
+# Kept: hotwords demonstrably fixed کود→کد, اسکاراتومی→اسکاروتومی,
+# فلپ→فلاپ, سائد→ساعد on live Skyroom audio with large-v3.
+HOTWORDS = (
+    "ضایعه, ناحیه, اسکاروتومی, اسکارکتومی, اکسپلور, عصب دیژیتال, "
+    "پیوند پوستی, فلاپ, ساعد, ارتوپدی, کد تعدیلی, جراح"
+)
+
+# ---------------------------------------------------------------------------
+# Listener mode: loopback capture + VAD
+# ---------------------------------------------------------------------------
+# PipeWire monitor source. Find yours with:
+#   python -c "import sounddevice as sd; print(sd.query_devices())"
+# On Fedora/PipeWire it looks like:
+#   "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor"
+# You can pass either the device name string or its integer index.
+LOOPBACK_DEVICE = "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor"   # None = system default input (not what you want for class)
+
+# VAD (silero) parameters for segmenting continuous audio.
+VAD_THRESHOLD = 0.5          # speech probability threshold (0..1)
+VAD_MIN_SILENCE_MS = 700     # silence needed to close a segment
+VAD_MIN_SPEECH_S = 0.6       # discard segments shorter than this
+VAD_MAX_SEGMENT_S = 45.0     # force-close a segment at this length. 60 for large-v3
+VAD_BLOCK_MS = 32            # VAD frame size (512 samples @ 16 kHz)
