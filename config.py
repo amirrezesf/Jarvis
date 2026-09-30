@@ -20,3 +20,10 @@ NINEROUTER_COMBO_NAME = "opencode"
 
 # Timeout in seconds (9Router fallback chains can take a while)
 NINEROUTER_TIMEOUT = 120.0
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+LOG_LEVEL = "INFO"               # "DEBUG" to see agent request logs
+LOG_DIR = "logs"
+SESSIONS_DIR = "logs/sessions"
