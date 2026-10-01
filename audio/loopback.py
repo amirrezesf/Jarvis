@@ -1,17 +1,22 @@
 """
-System-audio capture from a PipeWire monitor source, with silero VAD
-segmentation. Emits Utterance(source="system") once per speech segment.
+System-audio capture via parec subprocess + silero VAD.
 
-Linux-specific: relies on PipeWire/PulseAudio exposing a .monitor source
-that sounddevice can open. On Fedora this is the default PipeWire setup.
+Linux-specific: uses parec (PulseAudio/PipeWire) to capture from a
+monitor source. sounddevice/PortAudio does not enumerate monitor
+sources reliably on Fedora/PipeWire, so we shell out to parec.
+
+parec outputs raw float32 little-endian PCM to stdout. We read fixed
+blocks, feed them to silero VAD, and return one Utterance per detected
+speech segment.
 """
 
 from __future__ import annotations
 
 import logging
+import subprocess
+from typing import Any
 
 import numpy as np
-import sounddevice as sd
 import torch
 
 import config
@@ -22,10 +27,17 @@ logger = logging.getLogger(__name__)
 
 
 class LoopbackSource(AudioSource):
-    def __init__(self, device=None) -> None:
-        """device: monitor source name or integer index. Falls back to config."""
+    def __init__(self, device: str | None = None) -> None:
+        """device: PipeWire monitor source name. Falls back to config."""
         self.device = device if device is not None else config.LOOPBACK_DEVICE
         self.sample_rate = config.SAMPLE_RATE
+        self._proc: subprocess.Popen | None = None
+
+        if not self.device:
+            raise RuntimeError(
+                "LOOPBACK_DEVICE is not set in config.py. "
+                "Run `pactl list short sources | grep monitor` to find it."
+            )
 
         try:
             from silero_vad import load_silero_vad
@@ -34,17 +46,56 @@ class LoopbackSource(AudioSource):
                 "silero-vad is not installed. Run: pip install silero-vad"
             ) from exc
 
-        # Load once; reused across listen() calls.
-        self._vad_model = load_silero_vad()
-        logger.info("silero VAD loaded (device=%s)", self.device or "default")
+        self._vad_model: Any = load_silero_vad()
+        logger.info("silero VAD loaded (device=%s)", self.device)
+
+    # ------------------------------------------------------------------
+    def _ensure_proc(self) -> None:
+        """Start parec if it isn't already running."""
+        if self._proc is not None and self._proc.poll() is None:
+            return
+
+        cmd = [
+            "parec",
+            f"--device={self.device}",
+            "--format=float32le",
+            f"--rate={self.sample_rate}",
+            "--channels=1",
+            "--latency-msec=20",
+            "--raw",
+        ]
+        logger.info("Starting parec: %s", " ".join(cmd))
+        self._proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+    # ------------------------------------------------------------------
+    def _stop_proc(self) -> None:
+        if self._proc is None:
+            return
+        try:
+            self._proc.terminate()
+            self._proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            self._proc.kill()
+        finally:
+            self._proc = None
 
     # ------------------------------------------------------------------
     def listen(self) -> Utterance | None:
-        """Block until one VAD-detected speech segment completes, then return it.
+        """Block until one VAD-detected speech segment completes.
 
         Returns None if the segment is too short to be useful.
         """
+        self._ensure_proc()
+        if self._proc is None or self._proc.stdout is None:
+            return None
+
         block_size = int(self.sample_rate * config.VAD_BLOCK_MS / 1000)
+        bytes_per_block = block_size * 4  # float32
+
         min_silence_blocks = int(
             config.VAD_MIN_SILENCE_MS / config.VAD_BLOCK_MS
         )
@@ -56,55 +107,30 @@ class LoopbackSource(AudioSource):
         silence_count = 0
         recording = False
 
-        logger.debug(
-            "Opening InputStream device=%s sr=%d block=%d",
-            self.device or "default", self.sample_rate, block_size,
-        )
-
         try:
-            with sd.InputStream(
-                device=self.device,
-                samplerate=self.sample_rate,
-                channels=1,
-                dtype="float32",
-                blocksize=block_size,
-            ) as stream:
-                while True:
-                    data, overflowed = stream.read(block_size)
-                    if overflowed:
-                        logger.warning("Audio input overflow")
-                    chunk = data.flatten()
+            while True:
+                raw = self._proc.stdout.read(bytes_per_block)
+                if not raw or len(raw) < bytes_per_block:
+                    # parec died or stream ended.
+                    logger.warning("parec stream ended (got %d bytes)", len(raw))
+                    self._stop_proc()
+                    return None
 
-                    # silero expects (samples,) float32 tensor.
-                    prob = float(
-                        self._vad_model(
-                            torch.from_numpy(chunk), self.sample_rate
-                        ).item()
-                    )
-                    is_speech = prob > config.VAD_THRESHOLD
+                chunk = np.frombuffer(raw, dtype=np.float32)
+                prob = self._speech_probability(chunk)
+                is_speech = prob > config.VAD_THRESHOLD
 
-                    if is_speech:
-                        if not recording:
-                            recording = True
-                            chunks = []
-                            silence_count = 0
+                if is_speech:
+                    if not recording:
+                        recording = True
+                        chunks = []
                         silence_count = 0
-                        chunks.append(chunk)
-                    elif recording:
-                        silence_count += 1
-                        chunks.append(chunk)  # include trailing silence
-
-                        if silence_count >= min_silence_blocks:
-                            audio = np.concatenate(chunks)
-                            recording = False
-                            result = self._finish_segment(audio)
-                            if result is not None:
-                                return result
-                            # Too short: reset and keep listening.
-                            chunks = []
-                            silence_count = 0
-
-                    if recording and len(chunks) >= max_segment_blocks:
+                    silence_count = 0
+                    chunks.append(chunk)
+                elif recording:
+                    silence_count += 1
+                    chunks.append(chunk)
+                    if silence_count >= min_silence_blocks:
                         audio = np.concatenate(chunks)
                         recording = False
                         result = self._finish_segment(audio)
@@ -112,10 +138,21 @@ class LoopbackSource(AudioSource):
                             return result
                         chunks = []
                         silence_count = 0
+
+                if recording and len(chunks) >= max_segment_blocks:
+                    audio = np.concatenate(chunks)
+                    recording = False
+                    result = self._finish_segment(audio)
+                    if result is not None:
+                        return result
+                    chunks = []
+                    silence_count = 0
+
         except KeyboardInterrupt:
             raise
         except Exception as exc:
             logger.error("Loopback capture failed: %s", exc)
+            self._stop_proc()
             raise
 
     # ------------------------------------------------------------------
@@ -126,3 +163,29 @@ class LoopbackSource(AudioSource):
             return None
         logger.debug("Segment complete: %.2fs", seconds)
         return Utterance(audio, "system")
+
+    # ------------------------------------------------------------------
+    def close(self) -> None:
+        self._stop_proc()
+
+    # ------------------------------------------------------------------
+    def _speech_probability(self, chunk: np.ndarray) -> float:
+        """Run silero VAD on one frame and return the speech probability.
+
+        Handles two API shapes across silero-vad versions:
+          - model(chunk, sr)               -> tensor scalar
+          - model(chunk, sr, return_seconds=False) -> tensor scalar
+        """
+        tensor = torch.from_numpy(chunk.copy())
+        try:
+            out = self._vad_model(tensor, self.sample_rate)
+        except TypeError:
+            # Some builds want an explicit keyword or a different signature.
+            out = self._vad_model(tensor, self.sample_rate, return_seconds=False)
+
+        # Handle outputs that are tensors, floats, or dicts.
+        if isinstance(out, dict):
+            out = out.get("speech_prob", out.get("prob", 0.0))
+        if hasattr(out, "item"):
+            return float(out.item())
+        return float(out)

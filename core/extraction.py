@@ -186,6 +186,11 @@ class Extractor:
                 confidence = 0.0
             confidence = max(0.0, min(1.0, confidence))
 
+            summary = _truncate_words(
+                str(item.get("context_summary", "")),
+                config.EXTRACTION_CONTEXT_MAX_WORDS,
+            )
+
             records.append(
                 InstructionRecord(
                     trigger_type=trigger,
@@ -194,6 +199,7 @@ class Extractor:
                     scope=scope,
                     confidence=confidence,
                     source_text=source_text,
+                    context_summary=summary,
                     reasoning=str(item.get("reasoning", ""))[:200],
                 )
             )
@@ -230,3 +236,13 @@ def _extract_json(raw: str) -> dict | None:
             pass
 
     return None
+
+def _truncate_words(text: str, max_words: int) -> str:
+    """Trim text to at most max_words whitespace-separated words."""
+    text = text.strip()
+    if not text or max_words <= 0:
+        return text
+    words = text.split()
+    if len(words) <= max_words:
+        return text
+    return " ".join(words[:max_words]) + "…"

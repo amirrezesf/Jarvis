@@ -65,7 +65,7 @@ HOTWORDS = (
 # On Fedora/PipeWire it looks like:
 #   "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor"
 # You can pass either the device name string or its integer index.
-LOOPBACK_DEVICE = "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor"   # None = system default input (not what you want for class)
+LOOPBACK_DEVICE = "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor"  # None = system default input (not what you want for class)
 
 # VAD (silero) parameters for segmenting continuous audio.
 VAD_THRESHOLD = 0.5          # speech probability threshold (0..1)
@@ -118,3 +118,30 @@ EXTRACTION_MAX_RETRIES = 1
 
 # Timeout for one extraction call.
 EXTRACTION_TIMEOUT = 90.0
+# Soft cap on the Persian context summary attached to extracted
+# instructions. The prompt asks for "about this many"; the code
+# hard-truncates as a safety net.
+EXTRACTION_CONTEXT_MAX_WORDS = 25
+
+
+# ---------------------------------------------------------------------------
+# Matching + decision
+# ---------------------------------------------------------------------------
+# How long an extracted instruction stays pending before it's considered
+# stale. Roll calls finish in a couple of minutes; anything older than
+# this is almost certainly from a previous activity.
+INSTRUCTION_TTL_SECONDS = 5 * 60
+
+
+# ---------------------------------------------------------------------------
+# Alarm
+# ---------------------------------------------------------------------------
+# Play a short sound whenever a decision fires — immediate or trigger-matched.
+# Both fire in real time during a live class, and both need your attention.
+ALARM_ENABLED = True
+
+# Path to a sound file. paplay handles .oga and .wav; aplay only .wav.
+# Fedora ships a set of notification sounds under
+#   /usr/share/sounds/freedesktop/stereo/
+# Good candidates: bell.oga, complete.oga, message.oga, message-new-instant.oga
+ALARM_SOUND_PATH = "./assets/alarm.mp3"

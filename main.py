@@ -115,12 +115,6 @@ def _run_listen_mode() -> None:
         print("\nSession ended.")
 
 
-def _run_ui() -> None:
-    from core.logger import setup_logging
-    setup_logging()
-    from ui.canvas import run_ui
-    run_ui()
-
 
 def _run_text_mode() -> None:
     from core.agent import Agent, AgentError
@@ -302,6 +296,66 @@ def _run_extract_test(path: str) -> None:
     print("-" * 72)
     print(f"Total extracted: {total}")
 
+def _run_decide_test(path: str) -> None:
+    from core.alarm import play as play_alarm
+    from core.logger import setup_logging
+    from core.pipeline import ListenerPipeline
+
+    setup_logging()
+
+    with open(path, encoding="utf-8") as fh:
+        text = fh.read()
+
+    segments = _split_segments(text)
+    pipeline = ListenerPipeline()
+
+    print(f"File:      {path}")
+    print(f"Segments:  {len(segments)}")
+    print(f"TTL:       {config.INSTRUCTION_TTL_SECONDS}s")
+    print("-" * 72)
+
+    total = 0
+    for i, seg in enumerate(segments, 1):
+        decisions = pipeline.feed(seg)
+
+        if decisions:
+            play_alarm()
+
+        for d in decisions:
+            total += 1
+            print(f"[{i:>4}] DECISION  action={d.action}  args={d.args}")
+            trig = (
+                f"{d.trigger_evidence!r} (score={d.trigger_score:.0f})"
+                if d.trigger_evidence else "(immediate)"
+            )
+            print(f"        trigger:     {trig}")
+            print(f"        instruction: {d.instruction_source[:100]}")
+            print(
+                f"        scope={d.instruction_scope}  "
+                f"conf={d.instruction_confidence:.2f}"
+            )
+            print(f"        why:         {d.reasoning}")
+
+        pending = pipeline.state.pending()
+        if pending:
+            print(f"[{i:>4}] pending: {len(pending)}")
+
+    print("-" * 72)
+    print(f"Total decisions: {total}")
+
+def _run_ui(mode: str = "assistant") -> None:
+    from core.logger import setup_logging
+    setup_logging()
+    from ui.canvas import run_ui
+    run_ui(mode=mode)
+
+
+
+def _run_listener_ui() -> None:
+    from core.logger import setup_logging
+    setup_logging()
+    from ui.canvas import run_listener_ui
+    run_listener_ui()
 
 def main() -> None:
     args = sys.argv[1:]
@@ -329,6 +383,14 @@ def main() -> None:
             print("Usage: python main.py --extract-test <transcript.txt>")
             sys.exit(1)
         _run_extract_test(args[idx + 1])
+    elif "--decide-test" in args:
+        idx = args.index("--decide-test")
+        if idx + 1 >= len(args):
+            print("Usage: python main.py --decide-test <transcript.txt>")
+            sys.exit(1)
+        _run_decide_test(args[idx + 1])
+    elif "--listen-ui" in args:
+        _run_listener_ui()
     else:
         _run_ui()
 

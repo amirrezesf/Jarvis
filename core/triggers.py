@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from rapidfuzz import fuzz
 
 import config
+from core.events import TriggerEvent
 
 logger = logging.getLogger(__name__)
 
@@ -49,19 +50,6 @@ def normalize(text: str) -> str:
         text = text.replace(src, dst)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
-
-
-# ---------------------------------------------------------------------------
-# Events
-# ---------------------------------------------------------------------------
-@dataclass
-class TriggerEvent:
-    type: str               # e.g. "name_called"
-    matched_variant: str    # the config variant that matched
-    evidence: str           # the span in the transcript that matched
-    score: float            # 0..100
-    context: str            # the full buffered text at match time
-    fired: bool             # True if score >= threshold, else candidate only
 
 
 # ---------------------------------------------------------------------------
