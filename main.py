@@ -4,6 +4,8 @@ import sys
 import tempfile
 import time
 
+import config
+
 
 def _load_audio_any(path: str):
     """Load any audio format to 16 kHz mono float32. Uses ffmpeg as fallback."""
@@ -259,6 +261,47 @@ def _run_trigger_test(path: str) -> None:
     print("-" * 72)
     print(f"Fired:                {fired_count}")
     print(f"Candidates (total):   {candidate_count}")
+    
+def _run_extract_test(path: str) -> None:
+    from core.extraction import Extractor, ExtractionError
+    from core.logger import setup_logging
+
+    setup_logging()
+
+    with open(path, encoding="utf-8") as fh:
+        text = fh.read()
+
+    segments = _split_segments(text)
+    extractor = Extractor()
+
+    print(f"File:      {path}")
+    print(f"Segments:  {len(segments)}")
+    print(f"Model:     {extractor.model}")
+    print(f"Window:    {config.EXTRACTION_WINDOW_SEGMENTS}")
+    print("-" * 72)
+
+    total = 0
+    for i in range(1, len(segments) + 1):
+        window = segments[:i]
+        try:
+            records = extractor.extract(window)
+        except ExtractionError as exc:
+            print(f"[{i:>4}] ERROR: {exc}")
+            continue
+
+        for rec in records:
+            total += 1
+            print(
+                f"[{i:>4}] {rec.trigger_type:>11}  action={rec.action:<11} "
+                f"args={rec.args}  scope={rec.scope}  conf={rec.confidence:.2f}"
+            )
+            print(f"        src:  {rec.source_text[:110]}")
+            if rec.reasoning:
+                print(f"        why:  {rec.reasoning}")
+
+    print("-" * 72)
+    print(f"Total extracted: {total}")
+
 
 def main() -> None:
     args = sys.argv[1:]
@@ -280,6 +323,12 @@ def main() -> None:
             print("Usage: python main.py --trigger-test <transcript.txt>")
             sys.exit(1)
         _run_trigger_test(args[idx + 1])
+    elif "--extract-test" in args:
+        idx = args.index("--extract-test")
+        if idx + 1 >= len(args):
+            print("Usage: python main.py --extract-test <transcript.txt>")
+            sys.exit(1)
+        _run_extract_test(args[idx + 1])
     else:
         _run_ui()
 

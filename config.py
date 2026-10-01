@@ -98,3 +98,23 @@ NAME_MATCH_CANDIDATE_THRESHOLD = 65
 # to avoid matches on short common words.
 NAME_MATCH_MIN_LENGTH = 4
 NAME_BUFFER_SEGMENTS = 3
+
+
+# ---------------------------------------------------------------------------
+# LLM layer: instruction extraction
+# ---------------------------------------------------------------------------
+# Model / combo name for extraction. Runs once per segment, so latency
+# budget is generous — we prioritize reliability over raw speed.
+EXTRACTION_MODEL = "opencode"
+
+# Recent segments sent as context. The LATEST is always included.
+EXTRACTION_WINDOW_SEGMENTS = 5
+
+# Discard records below this confidence.
+EXTRACTION_CONFIDENCE_MIN = 0.7
+
+# One retry on malformed output or transient failure.
+EXTRACTION_MAX_RETRIES = 1
+
+# Timeout for one extraction call.
+EXTRACTION_TIMEOUT = 90.0
