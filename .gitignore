@@ -12,3 +12,5 @@ export.txt
 *.mp3
 !/assets/alarm.mp3
 tests/
+
+*.local.*

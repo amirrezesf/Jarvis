@@ -10,7 +10,8 @@ panel shows decisions produced by the listener pipeline.
 """
 
 from __future__ import annotations
-
+import logging
+import config
 import queue
 import threading
 import time
@@ -32,7 +33,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-
+logger = logging.getLogger(__name__) 
 # ---------------------------------------------------------------------------
 # Assistant worker
 # ---------------------------------------------------------------------------
@@ -214,16 +215,26 @@ class ListenerWorker(QObject):
 
             if utt is None:
                 continue
-
+            t0 = time.time()
             try:
                 tr = stt.run(utt)
             except Exception as exc:
                 self.error.emit(f"Transcribe error: {exc}")
                 continue
 
+            transcribe_wall = time.time() - t0
             self.transcript.emit(tr.text, tr.seconds)
-
+            t1 = time.time()
             decisions = pipeline.feed(tr.text)
+
+            pipeline_wall = time.time() - t1
+            logger.info(
+                "wall audio=%.2fs transcribe=%.2fs pipeline=%.2fs decisions=%d",
+                len(utt.audio) / config.SAMPLE_RATE,
+                transcribe_wall,
+                pipeline_wall,
+                len(decisions),
+            )
             if decisions:
                 play_alarm()
 

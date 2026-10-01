@@ -44,7 +44,28 @@ class Extractor:
         timeout: float | None = None,
         max_retries: int | None = None,
     ) -> None:
-        self.base_url = (base_url or config.NINEROUTER_URL).rstrip("/")
+        backend = getattr(config, "EXTRACTION_BACKEND", "cloud")
+
+        if base_url is None:
+            if backend == "local":
+                base_url = config.LOCAL_LLM_URL
+            else:
+                base_url = config.NINEROUTER_URL
+
+        if api_key is None:
+            if backend == "local":
+                api_key = config.LOCAL_LLM_KEY
+            else:
+                api_key = config.NINEROUTER_KEY
+
+        if model is None:
+            if backend == "local":
+                model = config.LOCAL_EXTRACTION_MODEL
+            else:
+                model = config.EXTRACTION_MODEL
+
+
+        self.base_url =  base_url.rstrip("/")
         self.api_key = api_key if api_key is not None else config.NINEROUTER_KEY
         self.model = model or config.EXTRACTION_MODEL
         self.timeout = timeout if timeout is not None else config.EXTRACTION_TIMEOUT
@@ -83,6 +104,7 @@ class Extractor:
         for attempt in range(1, attempts + 1):
             try:
                 raw = self._call_model(user_msg)
+                logger.info("extraction raw: %s", raw[:600])
             except ExtractionError as exc:
                 last_error = exc
                 if attempt < attempts:
@@ -124,8 +146,8 @@ class Extractor:
             ],
             "stream": False,
             "response_format": {"type": "json_object"},
+            "temperature": config.EXTRACTION_TEMPERATURE,
         }
-
         logger.debug("Extraction POST  model=%s", self.model)
 
         try:

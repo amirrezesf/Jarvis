@@ -118,6 +118,9 @@ EXTRACTION_MAX_RETRIES = 1
 
 # Timeout for one extraction call.
 EXTRACTION_TIMEOUT = 90.0
+# Structured extraction should be deterministic. Reasoning models may
+# still vary, but temperature 0 removes the largest noise source.
+EXTRACTION_TEMPERATURE = 1.0
 # Soft cap on the Persian context summary attached to extracted
 # instructions. The prompt asks for "about this many"; the code
 # hard-truncates as a safety net.
@@ -145,3 +148,22 @@ ALARM_ENABLED = True
 #   /usr/share/sounds/freedesktop/stereo/
 # Good candidates: bell.oga, complete.oga, message.oga, message-new-instant.oga
 ALARM_SOUND_PATH = "./assets/alarm.mp3"
+
+
+
+# ---------------------------------------------------------------------------
+# LLM layer: extraction backend
+# ---------------------------------------------------------------------------
+# "cloud"  -> use 9Router at NINEROUTER_URL (existing behavior)
+# "local"  -> use a local OpenAI-compatible server (Ollama, llama.cpp, vLLM)
+EXTRACTION_BACKEND = "cloud"
+
+# Local backend settings. Ollama exposes an OpenAI-compatible endpoint
+# at /v1 by default, so no code changes are needed to switch — only
+# these three values.
+LOCAL_LLM_URL = "http://localhost:11434/v1"
+LOCAL_LLM_KEY = ""  # Ollama ignores this; kept for compatibility
+LOCAL_EXTRACTION_MODEL = "qwen2.5:3b"
+
+# Cloud model (existing)
+EXTRACTION_MODEL = "opencode"
