@@ -43,11 +43,15 @@ class ListenerPipeline:
             self._window = self._window[-config.EXTRACTION_WINDOW_SEGMENTS:]
 
         # 1. Extract instructions from the window (latest = current).
-        try:
-            records = self.extractor.extract(self._window)
-        except ExtractionError as exc:
-            logger.error("Extraction failed: %s", exc)
+        if _is_name_only(segment, self.detector.variants):
+            logger.debug("Name-only segment; skipping extraction")
             records = []
+        else:
+            try:
+                records = self.extractor.extract(self._window)
+            except ExtractionError as exc:
+                logger.error("Extraction failed: %s", exc)
+                records = []
 
         # 2. Route each record.
         immediate_fired = False
@@ -119,3 +123,24 @@ class ListenerPipeline:
             ),
             context_summary=rec.context_summary,
         )
+
+import re
+
+from core.triggers import normalize as _norm
+
+
+def _is_name_only(segment: str, variants: list[str]) -> bool:
+    """True if the segment contains nothing but a name and short filler.
+
+    Deterministic guard against the extractor treating a roll-call name
+    call as a standalone instruction or question.
+    """
+    text = _norm(segment)
+    for variant in variants:
+        text = text.replace(variant, " ")
+    # Strip punctuation, filler, and whitespace.
+    text = re.sub(r"[؟?!.,،\s]+", " ", text)
+    for filler in ("بله", "بلی", "آره", "بله؟"):
+        text = text.replace(filler, " ")
+    text = text.strip()
+    return len(text) < 3

@@ -79,6 +79,10 @@ Rules:
       Do NOT add interpretation, opinions, or facts not present.
 
 When NOT to extract:
+- A segment that contains ONLY a name (optionally with "؟", "?", "بله",
+  "بلی", or similar short filler) is a roll-call name call. It is NOT
+  a question and NOT an instruction. Return {"instructions": []}.
+  A direct question must contain actual question content beyond the name.
 - A message that does not name the student (neither full name nor
   surname) is NOT a direct question. Return {"instructions": []}.
   Indirect questions to the room ("کی می‌تونه جواب بده؟") are ignored.
@@ -134,6 +138,10 @@ Output:
 Example 6 — direct question addressed to the student:
 LATEST: "امیررضا اسفندیاری، نظرت درباره این مورد چیه؟"
 (Preceding segments discussed modifier code 51 and types of incisions.)
+Example 7 — roll-call name, not an instruction:
+LATEST: "امیررضا اسفندیاری؟"
+Output:
+{"instructions": []}
 Output:
 {"instructions": [{"trigger_type": "immediate", "action": "notify_me",
 "args": {"text": "نظرت درباره این مورد چیه؟"}, "scope": "personal",
