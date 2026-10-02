@@ -319,7 +319,8 @@ def _run_decide_test(path: str) -> None:
         decisions = pipeline.feed(seg)
 
         if decisions:
-            play_alarm()
+            if any(d.action == "notify_me" for d in decisions):
+                play_alarm()
 
         for d in decisions:
             total += 1
