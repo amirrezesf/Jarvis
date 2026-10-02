@@ -2,9 +2,9 @@ import time
 
 from faster_whisper import WhisperModel
 
-import config
-from core import corrections
-from core.events import Utterance, Transcript
+from jarvis import config
+from jarvis.core import corrections
+from jarvis.core.events import Utterance, Transcript
 
 
 class Transcriber:

@@ -19,8 +19,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Callable
 
-import config
-from core.events import Decision
+from jarvis import config
+from jarvis.core.events import Decision
 
 logger = logging.getLogger(__name__)
 

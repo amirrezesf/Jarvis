@@ -14,11 +14,11 @@ import re
 import time
 from datetime import datetime
 
-import config
-from core.events import Decision, InstructionRecord, TriggerEvent
-from core.extraction import Extractor, ExtractionError
-from core.state import InstructionState
-from core.triggers import (
+from jarvis import config
+from jarvis.core.events import Decision, InstructionRecord, TriggerEvent
+from jarvis.core.extraction import Extractor, ExtractionError
+from jarvis.core.state import InstructionState
+from jarvis.core.triggers import (
     NameDetector,
     _score_variant,
     normalize as _norm,

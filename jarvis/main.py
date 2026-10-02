@@ -4,7 +4,7 @@ import sys
 import tempfile
 import time
 
-import config
+from jarvis import config
 
 
 def _load_audio_any(path: str):
@@ -43,10 +43,10 @@ def _load_audio_any(path: str):
 
 
 def _run_file_mode(path: str) -> None:
-    from core.events import Utterance
-    from core.logger import setup_logging
-    from core.recorder import SessionRecorder
-    from core.transcriber import Transcriber
+    from jarvis.core.events import Utterance
+    from jarvis.core.logger import setup_logging
+    from jarvis.core.recorder import SessionRecorder
+    from jarvis.core.transcriber import Transcriber
 
     setup_logging()
     audio = _load_audio_any(path)
@@ -77,10 +77,10 @@ def _run_file_mode(path: str) -> None:
 
 
 def _run_listen_mode() -> None:
-    from core.logger import setup_logging
-    from core.recorder import SessionRecorder
-    from core.transcriber import Transcriber
-    from audio.loopback import LoopbackSource
+    from jarvis.core.logger import setup_logging
+    from jarvis.core.recorder import SessionRecorder
+    from jarvis.core.transcriber import Transcriber
+    from jarvis.audio.loopback import LoopbackSource
 
     setup_logging()
 
@@ -117,8 +117,8 @@ def _run_listen_mode() -> None:
 
 
 def _run_text_mode() -> None:
-    from core.agent import Agent, AgentError
-    from core.logger import setup_logging
+    from jarvis.core.agent import Agent, AgentError
+    from jarvis.core.logger import setup_logging
 
     setup_logging()
     agent = Agent()
@@ -147,11 +147,11 @@ def _run_text_mode() -> None:
 
 
 def _run_terminal_voice() -> None:
-    from audio.mic import MicSource
-    from core.agent import Agent, AgentError
-    from core.logger import setup_logging
-    from core.recorder import SessionRecorder
-    from core.transcriber import Transcriber
+    from jarvis.audio.mic import MicSource
+    from jarvis.core.agent import Agent, AgentError
+    from jarvis.core.logger import setup_logging
+    from jarvis.core.recorder import SessionRecorder
+    from jarvis.core.transcriber import Transcriber
 
     setup_logging()
     agent = Agent()
@@ -217,8 +217,8 @@ def _split_segments(text: str) -> list[str]:
 
 
 def _run_trigger_test(path: str) -> None:
-    from core.logger import setup_logging
-    from core.triggers import NameDetector
+    from jarvis.core.logger import setup_logging
+    from jarvis.core.triggers import NameDetector
 
     setup_logging()
 
@@ -257,8 +257,8 @@ def _run_trigger_test(path: str) -> None:
     print(f"Candidates (total):   {candidate_count}")
     
 def _run_extract_test(path: str) -> None:
-    from core.extraction import Extractor, ExtractionError
-    from core.logger import setup_logging
+    from jarvis.core.extraction import Extractor, ExtractionError
+    from jarvis.core.logger import setup_logging
 
     setup_logging()
 
@@ -297,9 +297,9 @@ def _run_extract_test(path: str) -> None:
     print(f"Total extracted: {total}")
 
 def _run_decide_test(path: str) -> None:
-    from core.alarm import play as play_alarm
-    from core.logger import setup_logging
-    from core.pipeline import ListenerPipeline
+    from jarvis.core.alarm import play as play_alarm
+    from jarvis.core.logger import setup_logging
+    from jarvis.core.pipeline import ListenerPipeline
 
     setup_logging()
 
@@ -344,24 +344,24 @@ def _run_decide_test(path: str) -> None:
     print(f"Total decisions: {total}")
 
 def _run_ui(mode: str = "assistant") -> None:
-    from core.logger import setup_logging
+    from jarvis.core.logger import setup_logging
     setup_logging()
-    from ui.canvas import run_ui
+    from jarvis.ui.canvas import run_ui
     run_ui(mode=mode)
 
 
 
 def _run_listener_ui() -> None:
-    from core.logger import setup_logging
+    from jarvis.core.logger import setup_logging
     setup_logging()
-    from ui.canvas import run_listener_ui
+    from jarvis.ui.canvas import run_listener_ui
     run_listener_ui()
 
 def _run_execute_test(path: str) -> None:
-    from core.actions import Executor, Outcome
-    from core.logger import setup_logging
-    from core.pipeline import ListenerPipeline
-    from core.events import Decision
+    from jarvis.core.actions import Executor, Outcome
+    from jarvis.core.logger import setup_logging
+    from jarvis.core.pipeline import ListenerPipeline
+    from jarvis.core.events import Decision
 
     setup_logging()
 
@@ -398,7 +398,7 @@ def _run_execute_test(path: str) -> None:
             outcome = executor.approve(p.id)
             print(f"  id={p.id} -> {outcome.value.upper()}")
 
-        from core.actions import DryRunBackend
+        from jarvis.core.actions import DryRunBackend
         backend = executor.backend
         if isinstance(backend, DryRunBackend):
             print()

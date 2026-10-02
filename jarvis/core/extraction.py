@@ -16,9 +16,9 @@ import re
 
 import requests
 
-import config
-from core.events import InstructionRecord
-from core.prompts import (
+from jarvis import config
+from jarvis.core.events import InstructionRecord
+from jarvis.core.prompts import (
     INSTRUCTION_EXTRACTION_SYSTEM,
     INSTRUCTION_EXTRACTION_USER,
 )

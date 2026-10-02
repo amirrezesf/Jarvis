@@ -99,10 +99,10 @@ class Worker(QObject):
 
     def run(self) -> None:
         try:
-            from audio.mic import MicSource
-            from core.agent import Agent
-            from core.recorder import SessionRecorder
-            from core.transcriber import Transcriber
+            from jarvis.audio.mic import MicSource
+            from jarvis.core.agent import Agent
+            from jarvis.core.recorder import SessionRecorder
+            from jarvis.core.transcriber import Transcriber
         except Exception as exc:
             self.error.emit(f"Import failed: {exc}")
             return
@@ -157,7 +157,7 @@ class Worker(QObject):
         self.status_changed.emit("Stopped")
 
     def _run_agent(self, agent, recorder, utt, transcript, text) -> None:
-        from core.agent import AgentError
+        from jarvis.core.agent import AgentError
 
         self.status_changed.emit("Thinking")
         self.reply_started.emit()
@@ -236,11 +236,11 @@ class ListenerWorker(QObject):
     # ---- worker thread ----------------------------------------------
     def run(self) -> None:
         try:
-            from audio.loopback import LoopbackSource
-            from core.actions import Executor
-            from core.pipeline import ListenerPipeline
-            from core.recorder import SessionRecorder
-            from core.transcriber import Transcriber
+            from jarvis.audio.loopback import LoopbackSource
+            from jarvis.core.actions import Executor
+            from jarvis.core.pipeline import ListenerPipeline
+            from jarvis.core.recorder import SessionRecorder
+            from jarvis.core.transcriber import Transcriber
         except Exception as exc:
             self.error.emit(f"Import failed: {exc}")
             return

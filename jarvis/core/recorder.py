@@ -14,8 +14,8 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-import config
-from core.events import Utterance, Transcript
+from jarvis import config
+from jarvis.core.events import Utterance, Transcript
 
 logger = logging.getLogger(__name__)
 

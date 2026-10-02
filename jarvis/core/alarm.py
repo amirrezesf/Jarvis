@@ -12,7 +12,7 @@ import os
 import shutil
 import subprocess
 
-import config
+from jarvis import config
 
 logger = logging.getLogger(__name__)
 

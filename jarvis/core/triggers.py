@@ -24,8 +24,8 @@ from dataclasses import dataclass
 
 from rapidfuzz import fuzz
 
-import config
-from core.events import TriggerEvent
+from jarvis import config
+from jarvis.core.events import TriggerEvent
 
 logger = logging.getLogger(__name__)
 
