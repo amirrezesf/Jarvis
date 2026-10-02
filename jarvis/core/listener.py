@@ -180,7 +180,7 @@ class Listener:
                     self._emit_error(f"Pipeline error: {exc}")
                     decisions = []
 
-                if decisions and self.alarm:
+                if decisions and self.alarm and  any(d.action == "notify_me" for d in decisions):
                     try:
                         play_alarm()
                     except Exception:
