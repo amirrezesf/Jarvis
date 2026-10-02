@@ -167,3 +167,22 @@ LOCAL_EXTRACTION_MODEL = "qwen2.5:3b"
 
 # Cloud model (existing)
 EXTRACTION_MODEL = "opencode"
+
+# ---------------------------------------------------------------------------
+# Action execution
+# ---------------------------------------------------------------------------
+# Master switch. If False, no action ever executes.
+ACTION_EXECUTION_ENABLED = True
+
+# Dry-run: type_number and send_chat log what they WOULD have done and
+# stop there. notify_me is never dry-run — showing a notification is
+# harmless by definition. Set to False when the SkyroomBackend is wired in.
+ACTION_DRY_RUN = True
+
+# Actions that require confirmation before executing. Everything else runs
+# immediately. Irreversible actions should stay listed here during rollout.
+ACTION_REQUIRE_CONFIRM = ["type_number", "send_chat"]
+
+# Actions to skip entirely, without confirmation or execution. Useful for
+# temporarily muting a specific action type.
+ACTION_DISABLED: list[str] = []

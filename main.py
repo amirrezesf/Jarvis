@@ -357,6 +357,57 @@ def _run_listener_ui() -> None:
     from ui.canvas import run_listener_ui
     run_listener_ui()
 
+def _run_execute_test(path: str) -> None:
+    from core.actions import Executor, Outcome
+    from core.logger import setup_logging
+    from core.pipeline import ListenerPipeline
+    from core.events import Decision
+
+    setup_logging()
+
+    with open(path, encoding="utf-8") as fh:
+        text = fh.read()
+
+    segments = _split_segments(text)
+    pipeline = ListenerPipeline()
+    executor = Executor()
+
+    print(f"File:      {path}")
+    print(f"Segments:  {len(segments)}")
+    print(f"Dry-run:   {config.ACTION_DRY_RUN}")
+    print(f"Confirm:   {config.ACTION_REQUIRE_CONFIRM}")
+    print("-" * 72)
+
+    for i, seg in enumerate(segments, 1):
+        decisions = pipeline.feed(seg)
+        for d in decisions:
+            outcome = executor.submit(d)
+            tag = outcome.value.upper()
+            print(f"[{i:>4}] {tag:<9} action={d.action}  args={d.args}")
+
+    pending = executor.pending()
+    if pending:
+        print()
+        print(f"Pending confirmations: {len(pending)}")
+        for p in pending:
+            print(f"  id={p.id}  action={p.decision.action}  "
+                  f"args={p.decision.args}")
+        print()
+        print("Simulating approval of all pending actions...")
+        for p in list(pending):
+            outcome = executor.approve(p.id)
+            print(f"  id={p.id} -> {outcome.value.upper()}")
+
+        from core.actions import DryRunBackend
+        backend = executor.backend
+        if isinstance(backend, DryRunBackend):
+            print()
+            print("Backend recorded:")
+            for action, args in backend.executed:
+                print(f"  {action}  {args}")
+
+    print("-" * 72)
+
 def main() -> None:
     args = sys.argv[1:]
     if "--text" in args:
@@ -391,6 +442,12 @@ def main() -> None:
         _run_decide_test(args[idx + 1])
     elif "--listen-ui" in args:
         _run_listener_ui()
+    elif "--execute-test" in args:
+        idx = args.index("--execute-test")
+        if idx + 1 >= len(args):
+            print("Usage: python main.py --execute-test <transcript.txt>")
+            sys.exit(1)
+        _run_execute_test(args[idx + 1])
     else:
         _run_ui()
 

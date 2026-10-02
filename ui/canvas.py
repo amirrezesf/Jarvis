@@ -2,22 +2,23 @@
 PyQt6 black-canvas UI for Jarvis.
 
 Two modes:
-  - assistant mode (default): mic -> Whisper -> 9Router -> reply
-  - listener mode (--listen-ui): loopback -> Whisper -> pipeline -> decisions
+  - assistant mode: mic -> Whisper -> 9Router -> reply
+  - listener mode:  loopback -> Whisper -> pipeline -> decisions -> executor
 
-Both use the same window. The left panel shows transcript/chat, the right
-panel shows decisions produced by the listener pipeline.
+Listener mode has three panels:
+  - transcript (left)
+  - decisions  (right, top)
+  - pending confirmations (right, bottom) — approve with Enter, dismiss with Esc
 """
 
 from __future__ import annotations
-import logging
-import config
+
 import queue
 import threading
 import time
 from datetime import datetime
 from typing import Any
-from core.alarm import play as play_alarm
+
 from PyQt6.QtCore import QObject, QThread, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QTextCharFormat, QTextCursor
 from PyQt6.QtWidgets import (
@@ -28,12 +29,41 @@ from PyQt6.QtWidgets import (
     QMainWindow,
     QPushButton,
     QSplitter,
+    QSystemTrayIcon,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
-logger = logging.getLogger(__name__) 
+
+# ---------------------------------------------------------------------------
+# Formatting helpers
+# ---------------------------------------------------------------------------
+def _format_decision_args(d) -> str:
+    lines: list[str] = []
+    if d.action == "notify_me":
+        text = str(d.args.get("text", "")).strip()
+        if text:
+            lines.append(f"Q:      {text}")
+        if d.context_summary:
+            lines.append(f"CTX:    {d.context_summary}")
+    elif d.action == "type_number":
+        lines.append(f"n = {d.args.get('n')}")
+    elif d.action == "send_chat":
+        lines.append(f"text = {d.args.get('text')}")
+    else:
+        lines.append(str(d.args))
+    return "\n".join(lines)
+
+
+def _format_pending(d) -> str:
+    if d.action == "type_number":
+        return f"type_number  n = {d.args.get('n')}"
+    if d.action == "send_chat":
+        return f"send_chat    \"{d.args.get('text')}\""
+    return f"{d.action}  {d.args}"
+
+
 # ---------------------------------------------------------------------------
 # Assistant worker
 # ---------------------------------------------------------------------------
@@ -173,20 +203,41 @@ class Worker(QObject):
 # ---------------------------------------------------------------------------
 class ListenerWorker(QObject):
     status_changed = pyqtSignal(str)
-    transcript = pyqtSignal(str, float)     # text, transcribe_seconds
-    decision = pyqtSignal(str, str, str)    # action, args_str, reasoning
+    transcript = pyqtSignal(str, float)
+    decision = pyqtSignal(str, str, str)     # action, formatted args, reasoning
+    pending_added = pyqtSignal(int, str)     # action_id, formatted description
+    pending_removed = pyqtSignal(int)
+    notify = pyqtSignal(str, str)            # title, text
     error = pyqtSignal(str)
 
     def __init__(self) -> None:
         super().__init__()
         self._should_quit = False
+        self._executor = None
 
     def quit(self) -> None:
         self._should_quit = True
 
+    # ---- called from the UI thread -----------------------------------
+    def approve(self, action_id: int) -> None:
+        if self._executor is None:
+            return
+        outcome = self._executor.approve(action_id)
+        self.pending_removed.emit(action_id)
+        self.status_changed.emit(f"Approved id={action_id} ({outcome.value})")
+
+    def dismiss(self, action_id: int) -> None:
+        if self._executor is None:
+            return
+        self._executor.dismiss(action_id)
+        self.pending_removed.emit(action_id)
+        self.status_changed.emit(f"Dismissed id={action_id}")
+
+    # ---- worker thread ----------------------------------------------
     def run(self) -> None:
         try:
             from audio.loopback import LoopbackSource
+            from core.actions import Executor
             from core.pipeline import ListenerPipeline
             from core.recorder import SessionRecorder
             from core.transcriber import Transcriber
@@ -204,6 +255,7 @@ class ListenerWorker(QObject):
             self.error.emit(f"Init failed: {exc}")
             return
 
+        self._executor = Executor()
         self.status_changed.emit(f"Listening  ({session_id})")
 
         while not self._should_quit:
@@ -215,33 +267,40 @@ class ListenerWorker(QObject):
 
             if utt is None:
                 continue
-            t0 = time.time()
+
             try:
                 tr = stt.run(utt)
             except Exception as exc:
                 self.error.emit(f"Transcribe error: {exc}")
                 continue
 
-            transcribe_wall = time.time() - t0
             self.transcript.emit(tr.text, tr.seconds)
-            t1 = time.time()
+
             decisions = pipeline.feed(tr.text)
 
-            pipeline_wall = time.time() - t1
-            logger.info(
-                "wall audio=%.2fs transcribe=%.2fs pipeline=%.2fs decisions=%d",
-                len(utt.audio) / config.SAMPLE_RATE,
-                transcribe_wall,
-                pipeline_wall,
-                len(decisions),
-            )
-            if decisions:
-                play_alarm()
-
             for d in decisions:
-                self.decision.emit(
-                    d.action, _format_decision_args(d), d.reasoning
-                )
+                # notify_me: UI-only. Show desktop notification + canvas.
+                if d.action == "notify_me":
+                    self.notify.emit("Jarvis", _format_decision_args(d))
+                    self.decision.emit(d.action, _format_decision_args(d), d.reasoning)
+                    continue
+
+                # type_number / send_chat: go through executor.
+                outcome = self._executor.submit(d)
+                if outcome.value == "pending":
+                    # Find its id — the newest pending action.
+                    pending = self._executor.pending()
+                    if pending:
+                        pid = pending[-1].id
+                        self.pending_added.emit(pid, _format_pending(d))
+                    self.decision.emit(d.action, _format_decision_args(d),
+                                       f"{d.reasoning}  [queued for confirmation]")
+                elif outcome.value == "executed":
+                    self.decision.emit(d.action, _format_decision_args(d),
+                                       f"{d.reasoning}  [DRY-RUN executed]")
+                else:
+                    self.decision.emit(d.action, _format_decision_args(d),
+                                       f"{d.reasoning}  [{outcome.value}]")
 
             try:
                 recorder.log_turn(
@@ -249,43 +308,12 @@ class ListenerWorker(QObject):
                     transcript=tr,
                     reply=None,
                     agent_seconds=None,
-                    extra={
-                        "decisions": [
-                            {
-                                "action": d.action,
-                                "args": d.args,
-                                "trigger": d.trigger_evidence,
-                                "score": d.trigger_score,
-                                "instruction_source": d.instruction_source,
-                                "scope": d.instruction_scope,
-                                "confidence": d.instruction_confidence,
-                                "reasoning": d.reasoning,
-                            }
-                            for d in decisions
-                        ],
-                    },
+                    extra={"decisions_count": len(decisions)},
                 )
             except Exception as exc:
                 self.error.emit(f"Log failed: {exc}")
 
         self.status_changed.emit("Stopped")
-
-def _format_decision_args(d) -> str:
-    """Render a Decision's payload for the decisions panel."""
-    lines: list[str] = []
-    if d.action == "notify_me":
-        text = str(d.args.get("text", "")).strip()
-        if text:
-            lines.append(f"Q:      {text}")
-        if d.context_summary:
-            lines.append(f"CTX:    {d.context_summary}")
-    elif d.action == "type_number":
-        lines.append(f"n = {d.args.get('n')}")
-    elif d.action == "send_chat":
-        lines.append(f"text = {d.args.get('text')}")
-    else:
-        lines.append(str(d.args))
-    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -296,9 +324,10 @@ class JarvisWindow(QMainWindow):
         super().__init__()
         self._mode = mode
         self._recording = False
+        self._pending_ids: list[int] = []
 
         self.setWindowTitle("Jarvis")
-        self.resize(1180, 680)
+        self.resize(1180, 720)
 
         central = QWidget()
         central.setStyleSheet("background-color: #000;")
@@ -306,7 +335,6 @@ class JarvisWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Status line.
         self.status_label = QLabel("Starting…")
         self.status_label.setStyleSheet(
             "color: #777; background-color: #000; "
@@ -314,22 +342,25 @@ class JarvisWindow(QMainWindow):
         )
         layout.addWidget(self.status_label)
 
-        # Splitter: conversation | decisions.
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.setStyleSheet(
-            "QSplitter::handle { background-color: #1a1a1a; }"
-        )
+        splitter.setStyleSheet("QSplitter::handle { background-color: #1a1a1a; }")
 
+        # ---- left: conversation ----
         self.conversation = QTextEdit()
         self.conversation.setReadOnly(True)
         self.conversation.setStyleSheet(
-            "background-color: #000; color: #e0e0e0; "
-            "border: none; padding: 16px;"
+            "background-color: #000; color: #e0e0e0; border: none; padding: 16px;"
         )
         mono = QFont("JetBrains Mono", 11)
         mono.setStyleHint(QFont.StyleHint.Monospace)
         self.conversation.setFont(mono)
         splitter.addWidget(self.conversation)
+
+        # ---- right: decisions + pending ----
+        right = QWidget()
+        right_layout = QVBoxLayout(right)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(0)
 
         self.decisions = QTextEdit()
         self.decisions.setReadOnly(True)
@@ -338,13 +369,38 @@ class JarvisWindow(QMainWindow):
             "border-left: 1px solid #1a1a1a; padding: 16px;"
         )
         self.decisions.setFont(mono)
-        splitter.addWidget(self.decisions)
+        right_layout.addWidget(self.decisions, stretch=3)
+
+        # pending confirmations panel
+        self.pending_header = QLabel("Pending confirmations")
+        self.pending_header.setStyleSheet(
+            "color: #888; background-color: #0a0a0a; "
+            "padding: 6px 12px; font-family: monospace; font-size: 11px; "
+            "border-top: 1px solid #1a1a1a;"
+        )
+        right_layout.addWidget(self.pending_header)
+
+        self.pending_view = QTextEdit()
+        self.pending_view.setReadOnly(True)
+        self.pending_view.setStyleSheet(
+            "background-color: #0a0a0a; color: #ffd166; "
+            "border: none; padding: 12px;"
+        )
+        self.pending_view.setFont(mono)
+        right_layout.addWidget(self.pending_view, stretch=1)
+
+        hint = QLabel("Enter to approve top · Esc to dismiss top")
+        hint.setStyleSheet(
+            "color: #555; background-color: #0a0a0a; "
+            "padding: 4px 12px; font-family: monospace; font-size: 10px;"
+        )
+        right_layout.addWidget(hint)
+
+        splitter.addWidget(right)
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 2)
-
         layout.addWidget(splitter, stretch=1)
 
-        # Bottom bar (assistant mode only).
         if mode == "assistant":
             bottom = QWidget()
             bottom.setStyleSheet("background-color: #000;")
@@ -371,13 +427,18 @@ class JarvisWindow(QMainWindow):
             )
             self.record_btn.clicked.connect(self._on_record_toggle)
             bottom_layout.addWidget(self.record_btn)
-
             layout.addWidget(bottom)
 
         self.setCentralWidget(central)
 
-        # Worker + thread. Note: the attribute is not named `thread`
-        # because QObject already defines a `thread()` method.
+        # ---- system tray for desktop notifications ----
+        self._tray: QSystemTrayIcon | None = None
+        if QSystemTrayIcon.isSystemTrayAvailable():
+            self._tray = QSystemTrayIcon(self)
+            self._tray.setToolTip("Jarvis")
+            self._tray.show()
+
+        # ---- worker ----
         self.worker_thread = QThread()
         if mode == "listener":
             listener: ListenerWorker = ListenerWorker()
@@ -385,6 +446,9 @@ class JarvisWindow(QMainWindow):
             listener.status_changed.connect(self._on_status)
             listener.transcript.connect(self._on_listener_transcript)   # type: ignore[attr-defined]
             listener.decision.connect(self._on_decision)                # type: ignore[attr-defined]
+            listener.pending_added.connect(self._on_pending_added)      # type: ignore[attr-defined]
+            listener.pending_removed.connect(self._on_pending_removed)  # type: ignore[attr-defined]
+            listener.notify.connect(self._on_notify)                    # type: ignore[attr-defined]
             listener.error.connect(self._on_error)
             self.worker: Any = listener
         else:
@@ -420,9 +484,7 @@ class JarvisWindow(QMainWindow):
 
     def _on_listener_transcript(self, text: str, seconds: float) -> None:
         stamp = datetime.now().strftime("%H:%M:%S")
-        self._append(
-            self.conversation, f"\n[{stamp} {seconds:.1f}s] ", "#444"
-        )
+        self._append(self.conversation, f"\n[{stamp} {seconds:.1f}s] ", "#444")
         self._append(self.conversation, text, "#c0c0c0")
 
     def _on_decision(self, action: str, args: str, reasoning: str) -> None:
@@ -431,6 +493,33 @@ class JarvisWindow(QMainWindow):
         self._append(self.decisions, f"ACTION: {action}\n", "#7fd67f")
         self._append(self.decisions, args + "\n", "#e0e0e0")
         self._append(self.decisions, f"WHY:    {reasoning}\n", "#888")
+
+    def _on_pending_added(self, action_id: int, description: str) -> None:
+        self._pending_ids.append(action_id)
+        self._render_pending()
+
+    def _on_pending_removed(self, action_id: int) -> None:
+        if action_id in self._pending_ids:
+            self._pending_ids.remove(action_id)
+        self._render_pending()
+
+    def _render_pending(self) -> None:
+        self.pending_view.clear()
+        if not self._pending_ids:
+            self.pending_header.setText("Pending confirmations  (none)")
+            return
+        self.pending_header.setText(
+            f"Pending confirmations  ({len(self._pending_ids)})"
+        )
+        for i, pid in enumerate(self._pending_ids):
+            prefix = "▶ " if i == 0 else "  "
+            self._append(self.pending_view, f"{prefix}id={pid}\n", "#ffd166")
+
+    def _on_notify(self, title: str, text: str) -> None:
+        if self._tray is not None:
+            self._tray.showMessage(
+                title, text, QSystemTrayIcon.MessageIcon.Information, 8000,
+            )
 
     def _on_error(self, text: str) -> None:
         self._append(self.conversation, f"\n[error] {text}", "#f66")
@@ -465,6 +554,19 @@ class JarvisWindow(QMainWindow):
         cursor.insertText(text)
         widget.setTextCursor(cursor)
         widget.ensureCursorVisible()
+
+    # ---- keyboard shortcuts ------------------------------------------
+    def keyPressEvent(self, a0) -> None:
+        if a0 is None:
+            return
+        if self._mode == "listener" and self._pending_ids:
+            if a0.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                self.worker.approve(self._pending_ids[0])
+                return
+            if a0.key() == Qt.Key.Key_Escape:
+                self.worker.dismiss(self._pending_ids[0])
+                return
+        super().keyPressEvent(a0)
 
     # ---- shutdown -----------------------------------------------------
     def closeEvent(self, a0) -> None:
