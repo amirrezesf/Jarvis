@@ -1,7 +1,9 @@
-WHISPER_MODEL = "large-v3-turbo"
-DEVICE = "cuda"
-COMPUTE_TYPE = "float16" #int8_float16 for large-v3
-LANGUAGE = 'fa'          # "en" / "fa" to force
+WHISPER_MODEL: str = "large-v3-turbo"
+WHISPER_MODEL: str = "large-v3-turbo"
+DEVICE: str = "cuda"
+COMPUTE_TYPE: str = "float16"
+LANGUAGE: str = "fa"
+LOOPBACK_DEVICE: str = "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor"
 SAMPLE_RATE = 16000
 PTT_KEY = "right ctrl"
 SAVE_RECORDINGS = True
@@ -65,8 +67,6 @@ HOTWORDS = (
 # On Fedora/PipeWire it looks like:
 #   "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor"
 # You can pass either the device name string or its integer index.
-LOOPBACK_DEVICE = "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor"  # None = system default input (not what you want for class)
-
 # VAD (silero) parameters for segmenting continuous audio.
 VAD_THRESHOLD = 0.5          # speech probability threshold (0..1)
 VAD_MIN_SILENCE_MS = 700     # silence needed to close a segment

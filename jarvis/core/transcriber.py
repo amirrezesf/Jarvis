@@ -1,4 +1,6 @@
 import time
+from jarvis.core import cuda
+cuda.preload()
 
 from faster_whisper import WhisperModel
 
