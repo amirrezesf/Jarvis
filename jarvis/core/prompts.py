@@ -35,65 +35,63 @@ Always return a single JSON object with this exact shape:
 Rules:
 - If the LATEST segment contains no instruction, return {"instructions": []}.
 - Default to NO instruction. Only return an instruction for clear cases.
-- "scope":
-    * "personal"   = the teacher addresses a specific student.
-    * "broadcast"  = the teacher addresses the whole class ("students",
-                     "everyone", "all of you", etc.).
-- "trigger_type" — what makes the action fire. Pick by asking
-  "when should this happen?":
-    * "name_called" = the action should happen LATER, when a
-      specific name (usually the student's) is said. Phrases like
-      "بعد از اینکه اسمتون رو خوندم", "وقتی اسمت رو صدا زدم",
-      "اسمت رو که خوندم" are strong signals.
-    * "keyword"     = the action should happen LATER, when a
-      specific phrase or condition occurs. "وقتی گفتم...", "اگر
-      پرسیدم...", or a named condition.
-    * "immediate"   = the action should happen NOW. No future event
-      is named. The teacher is telling someone to do something in
-      this moment, or asking a direct question.
-    * "none"        = no instruction.
 
-  NOTE: "name_called" and "immediate" are about TIMING, not about
-  who is being addressed. A broadcast rule can have either — it
-  depends on when the action fires, not on scope.
+SCOPE — who is being addressed:
+- "personal"  = the teacher addresses ONE student by name.
+- "broadcast" = the teacher addresses the whole class. Strong signals:
+    * Explicit address words: "دانشجویان", "همه", "بچه‌ها", "دوستان",
+      "عزیزان", "حضار".
+    * Plural verb endings: "...کنید", "...بزنید", "...وارد کنید",
+      "...بنویسید", "...تایپ کنید".
+    * Plural possessives: "اسمتون", "اسم‌هاتون", "نظرتون",
+      "پاسخ‌هاتون", "عدتون".
+  When an instruction uses ONLY a plural verb ending or a plural
+  possessive and no explicit name, choose "broadcast" — not "personal".
 
-- "action":
-    * "type_number" = type a number into the chat or input field.
-    * "send_chat"   = send a text message to the class chat.
-    * "notify_me"   = ping the student. Use for (a) direct questions
-      addressed to the student, and (b) instructions where an action
-      is clearly requested but the specific action is ambiguous.
-    * "none"        = no action.
-- "args":
-    * type_number:  {"n": <integer>}
-    * send_chat:    {"text": "<string>"}
-    * notify_me:    {"text": "<string>"}
-- "send_chat" is for ANY instruction where the teacher asks students to
-  enter or type a specific word, number, or text into the chat or input
-  field. This includes "بله", "بلی", single letters, and short phrases.
-- "notify_me" is ONLY for cases where the teacher addresses a student
-  but does not specify what they should do. If the teacher names an
-  action, use that action.
-- "context_summary":
-    * A short summary IN PERSIAN (at most about 25 words) of the
-      segments immediately before the LATEST one — the setup that
-      the instruction or question refers to.
-    * Include it ONLY when you are returning an instruction.
-      If you are returning [], omit it.
-    * Summarize only what is actually in those segments.
-      Do NOT add interpretation, opinions, or facts not present.
+TRIGGER_TYPE — when does the action fire:
+- "name_called" = the action fires LATER, when a specific name is said.
+  Signals: "بعد از اینکه اسمتون رو خوندم", "وقتی اسمت رو صدا زدم",
+  "اسمت رو که خوندم".
+- "keyword"     = the action fires LATER, when a specific phrase or
+  condition occurs. Signals: "وقتی گفتم...", "اگر پرسیدم...".
+- "immediate"   = the action happens NOW, no future event is named.
+  Direct question or direct request in the current moment.
+- "none"        = no instruction.
+
+ACTION — what the student should DO:
+- "type_number" = the student is asked to enter a NUMBER. Signals:
+  digits ("۱", "2"), Persian number words ("یک", "دو", "سه", "شیش"),
+  the word "عدد" (number).
+- "send_chat"   = the student is asked to enter a WORD or PHRASE, or
+  send any text. Signals: "کلمه" (word), "بنویسید", "بفرستید", or any
+  quoted text like "بله", "بلی", "حاضر", "موافقم".
+  ANY non-numeric text, however short, is send_chat — not notify_me.
+- "notify_me"   = ping the student WITHOUT taking an action. Use ONLY
+  when there is a clear instruction but the action itself is completely
+  unspecified ("امیررضا، یه کاری بکن"). NEVER use notify_me when the
+  teacher names a specific word, number, or text to enter.
+- "none"        = no action.
+
+ARGS:
+- type_number: {"n": <integer>}
+- send_chat:   {"text": "<string>"}
+- notify_me:   {"text": "<string>"}
+
+CONTEXT_SUMMARY:
+- A short summary IN PERSIAN (at most about 25 words) of the segments
+  immediately before the LATEST one — the setup the instruction refers to.
+- Include ONLY when returning an instruction. If you return [],
+  omit it.
+- Summarize only what is actually in those segments. Do NOT add
+  interpretation, opinions, or facts not present.
 
 When NOT to extract:
-- A segment that contains ONLY a name (optionally with "؟", "?", "بله",
-  "بلی", or similar short filler) is a roll-call name call. It is NOT
-  a question and NOT an instruction. Return {"instructions": []}.
-  A direct question must contain actual question content beyond the name.
 - A message that does not name the student (neither full name nor
   surname) is NOT a direct question. Return {"instructions": []}.
-  Indirect questions to the room ("کی می‌تونه جواب بده؟") are ignored.
-- If there is NO instruction — just classroom speech, a generic
-  offer, a norm, a rhetorical question, a check-in — return
-  {"instructions": []}.
+- A generic offer or classroom norm ("اگر کسی سؤال داشت، توی چت بنویسه",
+  "همه آماده‌اید؟") is NOT an instruction. Return {"instructions": []}.
+- A segment that contains ONLY a name call, with or without a question
+  mark, is a roll-call call. Return {"instructions": []}.
 - Ask yourself: "does this sentence ask the student to DO something
   specific, or ANSWER something specific?" If no, do not extract.
 
@@ -102,65 +100,67 @@ Other rules:
   Infer the intended meaning from context.
 - The transcript may be in Persian, English, or mixed. Handle all.
 - Numbers may be spoken in Persian ("یک", "دو") or written as digits
-  ("1", "2"). Normalize to integer for "type_number".
+  ("1", "2"). Normalize to integer for type_number.
 
 Examples:
 
-Example 1 — future trigger, whole class:
+Example 1 — broadcast rule, type a number on name call:
 LATEST: "دانشجویان عزیز، بعد از اینکه اسمتون رو خوندم لطفاً عدد یک رو تایپ کنید"
 Output:
 {"instructions": [{"trigger_type": "name_called", "action": "type_number",
 "args": {"n": 1}, "scope": "broadcast", "confidence": 0.95,
-"context_summary": "معرفی جلسه و شروع بحث درباره جراحی متعدد",
-"reasoning": "The trigger is a future event (reading names); the scope is the whole class."}]}
+"context_summary": "شروع جلسه و آماده‌سازی برای حضور و غیاب",
+"reasoning": "The trigger is a future event; the whole class is addressed with a plural verb."}]}
 
-Example 2 — personal address, action now:
+Example 2 — broadcast rule, enter a word on name call:
+LATEST: "بچه‌ها، وقتی اسمتون رو خوندم کلمه بله رو وارد کنید"
+Output:
+{"instructions": [{"trigger_type": "name_called", "action": "send_chat",
+"args": {"text": "بله"}, "scope": "broadcast", "confidence": 0.95,
+"context_summary": "شروع حضور و غیاب در ابتدای جلسه",
+"reasoning": "Whole class (بچه‌ها, اسمتون); the student is asked to enter the word بله, which is send_chat, not type_number."}]}
+
+Example 3 — broadcast rule, enter a word, no explicit address word:
+LATEST: "چون وقتی اسمتون رو خوندم کلمه بله رو وارد کنید"
+Output:
+{"instructions": [{"trigger_type": "name_called", "action": "send_chat",
+"args": {"text": "بله"}, "scope": "broadcast", "confidence": 0.9,
+"context_summary": "حضور و غیاب و دستور وارد کردن کلمه بله",
+"reasoning": "Plural verb (کنید) and plural possessive (اسمتون) mean whole class; entering the word بله is send_chat."}]}
+
+Example 4 — personal direct action, type a number now:
 LATEST: "امیررضا اسفندیاری، لطفاً عدد دو را وارد کن"
 Output:
 {"instructions": [{"trigger_type": "immediate", "action": "type_number",
 "args": {"n": 2}, "scope": "personal", "confidence": 0.95,
-"context_summary": "بحث درباره کد تعدیلی ۵۱ و انواع شکاف",
-"reasoning": "The teacher addresses a student directly and asks for action now."}]}
+"context_summary": "بحث درباره کد تعدیلی ۵۱",
+"reasoning": "One student by full name, singular imperative, digit action now."}]}
 
-Example 3 — no instruction, lecture content:
+Example 5 — no instruction, lecture content:
 LATEST: "خب، بریم سراغ مبحث بعدی. امروز درباره اسکاروتومی صحبت می‌کنیم"
 Output:
 {"instructions": []}
 
-Example 4 — generic offer, NOT an instruction:
+Example 6 — generic offer, NOT an instruction:
 LATEST: "اگر کسی سؤال داشت، توی چت بنویسه"
 Output:
 {"instructions": []}
 
-Example 5 — instruction with unclear action (legitimate notify_me):
+Example 7 — instruction with genuinely unspecified action (legitimate notify_me):
 LATEST: "امیررضا، یه کاری بکن"
 Output:
 {"instructions": [{"trigger_type": "immediate", "action": "notify_me",
 "args": {"text": "یه کاری بکن"}, "scope": "personal", "confidence": 0.7,
-"context_summary": "بحث درباره تمرین کلاسی",
-"reasoning": "Clear personal address, but no specific action was stated."}]}
+"context_summary": "درخواست نامشخص از دانشجو",
+"reasoning": "Clear personal address, action completely unspecified — notify_me is correct here."}]}
 
-Example 6 — direct question addressed to the student:
+Example 8 — direct question by full name:
 LATEST: "امیررضا اسفندیاری، نظرت درباره این مورد چیه؟"
-(Preceding segments discussed modifier code 51 and types of incisions.)
-Example 7 — roll-call name, not an instruction:
-LATEST: "امیررضا اسفندیاری؟"
-Output:
-{"instructions": []}
 Output:
 {"instructions": [{"trigger_type": "immediate", "action": "notify_me",
 "args": {"text": "نظرت درباره این مورد چیه؟"}, "scope": "personal",
-"confidence": 0.9,
-"context_summary": "بحث درباره کد تعدیلی ۵۱ و انواع شکاف در جراحی متعدد",
-"reasoning": "Direct question addressed to the student by full name."}]}
-
-Example 8 — direct address with action NOW (not name_called):
-LATEST: "امیررضا اسفندیاری، عدد دو رو بزن"
-Output: {"trigger_type": "immediate", ...}
-
-Example 9 — conditional on a future name call:
-LATEST: "امیررضا اسفندیاری، بعد از اینکه اسمت رو خوندم عدد دو رو بزن"
-Output: {"trigger_type": "name_called", ...}
+"confidence": 0.9, "context_summary": "بحث درباره کد تعدیلی ۵۱ و انواع شکاف",
+"reasoning": "Direct question addressed by full name; the student answers, no tool action needed."}]}
 
 Return only the JSON object. No prose, no markdown fences.
 """
