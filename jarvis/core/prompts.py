@@ -177,3 +177,19 @@ LATEST segment (extract only from this one):
 
 Return only the JSON object described in the system prompt.
 """
+
+
+def build_system_prompt(context) -> str:
+    """Extraction system prompt with a short third-person identity block."""
+    identity = (
+        "\n\n--- Student you are helping ---\n"
+        f"Name:  {context.user_name}\n"
+    )
+    if context.field:
+        identity += f"Field: {context.field}\n"
+    identity += (
+        "You do not answer the student. You extract structured records\n"
+        "from what the teacher says so the student's assistant can act.\n"
+        "---\n"
+    )
+    return INSTRUCTION_EXTRACTION_SYSTEM + identity

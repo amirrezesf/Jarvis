@@ -21,6 +21,7 @@ from jarvis.core.events import InstructionRecord
 from jarvis.core.prompts import (
     INSTRUCTION_EXTRACTION_SYSTEM,
     INSTRUCTION_EXTRACTION_USER,
+    build_system_prompt,
 )
 
 logger = logging.getLogger(__name__)
@@ -81,7 +82,7 @@ class Extractor:
         self._session.headers.update({"Content-Type": "application/json"})
 
     # ------------------------------------------------------------------
-    def extract(self, segments: list[str]) -> list[InstructionRecord]:
+    def extract(self, segments: list[str], context=None) -> list[InstructionRecord]:
         """Extract instructions from the last segment, using the rest as context.
 
         Returns [] on no instruction or unusable output.
@@ -92,18 +93,22 @@ class Extractor:
 
         window = segments[-config.EXTRACTION_WINDOW_SEGMENTS:]
         latest = window[-1]
-        context = "\n".join(f"- {s}" for s in window[:-1]) or "(none)"
+        ctx_text = "\n".join(f"- {s}" for s in window[:-1]) or "(none)"
 
         user_msg = INSTRUCTION_EXTRACTION_USER.format(
-            context=context, latest=latest,
+            context=ctx_text, latest=latest,
         )
 
+        if context is not None:
+            system_prompt = build_system_prompt(context)
+        else:
+            system_prompt = INSTRUCTION_EXTRACTION_SYSTEM
         last_error: Exception | None = None
         attempts = self.max_retries + 1
 
         for attempt in range(1, attempts + 1):
             try:
-                raw = self._call_model(user_msg)
+                raw = self._call_model(user_msg, system_prompt)
                 logger.info("extraction raw: %s", raw[:600])
             except ExtractionError as exc:
                 last_error = exc
@@ -136,12 +141,12 @@ class Extractor:
         return []
 
     # ------------------------------------------------------------------
-    def _call_model(self, user_msg: str) -> str:
+    def _call_model(self, user_msg: str,system_prompt: str) -> str:
         url = f"{self.base_url}/chat/completions"
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": INSTRUCTION_EXTRACTION_SYSTEM},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_msg},
             ],
             "stream": False,
