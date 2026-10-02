@@ -45,8 +45,11 @@ _MIGRATED_FIELDS = [
     "NINEROUTER_URL",
     "NINEROUTER_KEY",
     "NINEROUTER_COMBO_NAME",
+    "ACTION_EXECUTION_ENABLED",
+    "ACTION_DRY_RUN",
+    "ACTION_REQUIRE_CONFIRM",
+    "ACTION_DISABLED",
 ]
-
 
 def _resolve_path(value: Any) -> Any:
     if not isinstance(value, str) or not value:
