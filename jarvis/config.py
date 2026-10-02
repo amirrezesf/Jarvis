@@ -186,3 +186,8 @@ ACTION_REQUIRE_CONFIRM = ["type_number", "send_chat"]
 # Actions to skip entirely, without confirmation or execution. Useful for
 # temporarily muting a specific action type.
 ACTION_DISABLED: list[str] = []
+
+
+from jarvis.core.config_loader import apply_overrides as _apply_overrides
+_apply_overrides(globals())
+del _apply_overrides
