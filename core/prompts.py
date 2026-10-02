@@ -68,7 +68,12 @@ Rules:
     * type_number:  {"n": <integer>}
     * send_chat:    {"text": "<string>"}
     * notify_me:    {"text": "<string>"}
-
+- "send_chat" is for ANY instruction where the teacher asks students to
+  enter or type a specific word, number, or text into the chat or input
+  field. This includes "بله", "بلی", single letters, and short phrases.
+- "notify_me" is ONLY for cases where the teacher addresses a student
+  but does not specify what they should do. If the teacher names an
+  action, use that action.
 - "context_summary":
     * A short summary IN PERSIAN (at most about 25 words) of the
       segments immediately before the LATEST one — the setup that
@@ -148,6 +153,14 @@ Output:
 "confidence": 0.9,
 "context_summary": "بحث درباره کد تعدیلی ۵۱ و انواع شکاف در جراحی متعدد",
 "reasoning": "Direct question addressed to the student by full name."}]}
+
+Example 8 — direct address with action NOW (not name_called):
+LATEST: "امیررضا اسفندیاری، عدد دو رو بزن"
+Output: {"trigger_type": "immediate", ...}
+
+Example 9 — conditional on a future name call:
+LATEST: "امیررضا اسفندیاری، بعد از اینکه اسمت رو خوندم عدد دو رو بزن"
+Output: {"trigger_type": "name_called", ...}
 
 Return only the JSON object. No prose, no markdown fences.
 """

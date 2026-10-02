@@ -156,7 +156,7 @@ ALARM_SOUND_PATH = "./assets/alarm.mp3"
 # ---------------------------------------------------------------------------
 # "cloud"  -> use 9Router at NINEROUTER_URL (existing behavior)
 # "local"  -> use a local OpenAI-compatible server (Ollama, llama.cpp, vLLM)
-EXTRACTION_BACKEND = "cloud"
+EXTRACTION_BACKEND = "local"
 
 # Local backend settings. Ollama exposes an OpenAI-compatible endpoint
 # at /v1 by default, so no code changes are needed to switch — only
