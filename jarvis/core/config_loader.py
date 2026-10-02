@@ -79,9 +79,26 @@ def _ensure_dirs() -> None:
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
-
 def _migrate(defaults: dict) -> dict:
     out = {k: defaults[k] for k in _MIGRATED_FIELDS if k in defaults}
+
+    # Auto-detect the monitor source if the default is empty or missing.
+    if not out.get("LOOPBACK_DEVICE"):
+        try:
+            from jarvis.audio.monitor import default_monitor_source
+            detected = default_monitor_source()
+            if detected:
+                out["LOOPBACK_DEVICE"] = detected
+                logger.info("Auto-detected monitor source: %s", detected)
+            else:
+                logger.warning(
+                    "No monitor source detected; set LOOPBACK_DEVICE "
+                    "in %s before starting the listener",
+                    CONFIG_FILE,
+                )
+        except Exception as e:
+            logger.warning("Monitor auto-detect failed: %s", e)
+
     try:
         CONFIG_FILE.write_text(
             json.dumps(out, ensure_ascii=False, indent=4) + "\n",
@@ -91,7 +108,6 @@ def _migrate(defaults: dict) -> dict:
     except Exception as exc:
         logger.warning("Could not write %s: %s", CONFIG_FILE, exc)
     return out
-
 
 def load(defaults: dict) -> dict:
     _ensure_dirs()
@@ -122,6 +138,18 @@ def load(defaults: dict) -> dict:
 
 
 def apply_overrides(namespace: dict) -> None:
+    overrides = load(namespace)
+    for key, value in overrides.items():
+        namespace[key] = value
+
+def reload_into(namespace: dict) -> None:
+    """Re-read config.json and apply the values into a module namespace.
+
+    Used by the GUI after saving, so the running process picks up the
+    new values without a restart. The active Listener uses the config
+    module at every call, so the change takes effect on the next
+    segment — no thread restart required.
+    """
     overrides = load(namespace)
     for key, value in overrides.items():
         namespace[key] = value

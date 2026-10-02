@@ -34,10 +34,17 @@ class LoopbackSource(AudioSource):
         self._proc: subprocess.Popen | None = None
 
         if not self.device:
-            raise RuntimeError(
-                "LOOPBACK_DEVICE is not set in config.py. "
-                "Run `pactl list short sources | grep monitor` to find it."
-            )
+            from jarvis.audio.monitor import default_monitor_source
+            detected = default_monitor_source()
+            if detected:
+                self.device = detected
+                logger.info("Auto-detected monitor source: %s", detected)
+            else:
+                raise RuntimeError(
+                    "No monitor source configured and none could be detected. "
+                    "Set LOOPBACK_DEVICE in ~/.jarvis/config.json. "
+                    "Run `pactl list short sources | grep monitor` to list them."
+                )
 
         try:
             from silero_vad import load_silero_vad
