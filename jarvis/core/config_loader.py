@@ -53,11 +53,23 @@ def _resolve_path(value: Any) -> Any:
         return value
     if value.lower() in ("default", "package"):
         return value
+    # Only treat as a path if it *looks* like one. Hugging Face model
+    # names like "large-v3-turbo" or "Systran/faster-whisper-large-v3"
+    # must be left alone — expanding them to ~/.jarvis/<name> breaks
+    # faster-whisper's own repo-id resolution.
+    looks_like_path = (
+        value.startswith("/")
+        or value.startswith("~")
+        or value.startswith("./")
+        or value.startswith("../")
+        or value.startswith(".\\")
+    )
+    if not looks_like_path:
+        return value
     p = Path(value).expanduser()
     if not p.is_absolute():
         p = JARVIS_DIR / p
     return str(p)
-
 
 def _ensure_dirs() -> None:
     JARVIS_DIR.mkdir(parents=True, exist_ok=True)
