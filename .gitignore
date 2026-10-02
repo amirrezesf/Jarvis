@@ -10,7 +10,7 @@ export.txt
 *.mp4
 *.m4a
 *.mp3
-!/assets/alarm.mp3
+!/jarvis/assets/alarm.mp3
 tests/
 
 *.local.*
