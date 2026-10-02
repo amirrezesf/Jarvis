@@ -14,7 +14,6 @@ dependencies = [
     "numpy>=1.26",
     "requests>=2.31",
     "rapidfuzz>=3.6",
-    "silero-vad>=5.1",
     "onnxruntime>=1.17",
     "python-dotenv>=1.0",
     "PyQt6>=6.6",
@@ -29,4 +28,4 @@ jarvis = "jarvis.main:main"
 include = ["jarvis*"]
 
 [tool.setuptools.package-data]
-"jarvis.assets" = ["*.oga", "*.wav", "*.mp3"]
+"jarvis.assets" = ["*.oga", "*.wav", "*.mp3", "*.onnx"]

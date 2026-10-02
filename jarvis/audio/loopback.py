@@ -17,7 +17,8 @@ import subprocess
 from typing import Any
 
 import numpy as np
-import torch
+
+from jarvis.audio.vad import SileroVAD
 
 from jarvis import config
 from jarvis.audio.base import AudioSource
@@ -46,14 +47,7 @@ class LoopbackSource(AudioSource):
                     "Run `pactl list short sources | grep monitor` to list them."
                 )
 
-        try:
-            from silero_vad import load_silero_vad
-        except ImportError as exc:
-            raise RuntimeError(
-                "silero-vad is not installed. Run: pip install silero-vad"
-            ) from exc
-
-        self._vad_model: Any = load_silero_vad()
+        self._vad_model = SileroVAD(sample_rate=self.sample_rate)
         logger.info("silero VAD loaded (device=%s)", self.device)
 
     # ------------------------------------------------------------------
@@ -177,22 +171,5 @@ class LoopbackSource(AudioSource):
 
     # ------------------------------------------------------------------
     def _speech_probability(self, chunk: np.ndarray) -> float:
-        """Run silero VAD on one frame and return the speech probability.
-
-        Handles two API shapes across silero-vad versions:
-          - model(chunk, sr)               -> tensor scalar
-          - model(chunk, sr, return_seconds=False) -> tensor scalar
-        """
-        tensor = torch.from_numpy(chunk.copy())
-        try:
-            out = self._vad_model(tensor, self.sample_rate)
-        except TypeError:
-            # Some builds want an explicit keyword or a different signature.
-            out = self._vad_model(tensor, self.sample_rate, return_seconds=False)
-
-        # Handle outputs that are tensors, floats, or dicts.
-        if isinstance(out, dict):
-            out = out.get("speech_prob", out.get("prob", 0.0))
-        if hasattr(out, "item"):
-            return float(out.item())
-        return float(out)
+        """Run silero VAD on one frame and return the speech probability."""
+        return self._vad_model(chunk)
