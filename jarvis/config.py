@@ -147,7 +147,7 @@ ALARM_ENABLED = True
 # Fedora ships a set of notification sounds under
 #   /usr/share/sounds/freedesktop/stereo/
 # Good candidates: bell.oga, complete.oga, message.oga, message-new-instant.oga
-ALARM_SOUND_PATH = "./assets/alarm.mp3"
+ALARM_SOUND_PATH = "default"
 
 
 

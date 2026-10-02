@@ -25,3 +25,6 @@ jarvis = "jarvis.main:main"
 
 [tool.setuptools.packages.find]
 include = ["jarvis*"]
+
+[tool.setuptools.package-data]
+"jarvis.assets" = ["*.oga", "*.wav", "*.mp3"]
