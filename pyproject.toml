@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jarvis-listener"
+version = "0.1.0"
+description = "Local voice assistant listener for SkyroomBot"
+requires-python = ">=3.12"
+dependencies = [
+    "faster-whisper>=1.0",
+    "soundfile>=0.12",
+    "sounddevice>=0.4",
+    "soundcard>=0.4",
+    "numpy>=1.26",
+    "requests>=2.31",
+    "rapidfuzz>=3.6",
+    "onnxruntime>=1.17",
+    "python-dotenv>=1.0",
+    "PyQt6>=6.6",
+    "nvidia-cublas-cu12",
+    "nvidia-cudnn-cu12",
+]
+
+[project.scripts]
+jarvis = "jarvis.main:main"
+
+[tool.setuptools.packages.find]
+include = ["jarvis*"]
+
+[tool.setuptools.package-data]
+"jarvis.assets" = ["*.oga", "*.wav", "*.mp3", "*.onnx"]

@@ -19,9 +19,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import config
-from core.extraction import Extractor, ExtractionError
-from core.logger import setup_logging
+from jarvis import config
+from jarvis.core.extraction import Extractor, ExtractionError
+from jarvis.core.logger import setup_logging
 
 
 # ---------------------------------------------------------------------------

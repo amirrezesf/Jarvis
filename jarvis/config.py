@@ -1,7 +1,9 @@
-WHISPER_MODEL = "large-v3-turbo"
-DEVICE = "cuda"
-COMPUTE_TYPE = "float16" #int8_float16 for large-v3
-LANGUAGE = 'fa'          # "en" / "fa" to force
+WHISPER_MODEL: str = "large-v3-turbo"
+WHISPER_MODEL: str = "large-v3-turbo"
+DEVICE: str = "cuda"
+COMPUTE_TYPE: str = "float16"
+LANGUAGE: str = "fa"
+LOOPBACK_DEVICE: str = ""
 SAMPLE_RATE = 16000
 PTT_KEY = "right ctrl"
 SAVE_RECORDINGS = True
@@ -65,8 +67,6 @@ HOTWORDS = (
 # On Fedora/PipeWire it looks like:
 #   "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor"
 # You can pass either the device name string or its integer index.
-LOOPBACK_DEVICE = "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor"  # None = system default input (not what you want for class)
-
 # VAD (silero) parameters for segmenting continuous audio.
 VAD_THRESHOLD = 0.5          # speech probability threshold (0..1)
 VAD_MIN_SILENCE_MS = 700     # silence needed to close a segment
@@ -147,7 +147,7 @@ ALARM_ENABLED = True
 # Fedora ships a set of notification sounds under
 #   /usr/share/sounds/freedesktop/stereo/
 # Good candidates: bell.oga, complete.oga, message.oga, message-new-instant.oga
-ALARM_SOUND_PATH = "./assets/alarm.mp3"
+ALARM_SOUND_PATH = "default"
 
 
 
@@ -186,3 +186,8 @@ ACTION_REQUIRE_CONFIRM = ["type_number", "send_chat"]
 # Actions to skip entirely, without confirmation or execution. Useful for
 # temporarily muting a specific action type.
 ACTION_DISABLED: list[str] = []
+
+
+from jarvis.core.config_loader import apply_overrides as _apply_overrides
+_apply_overrides(globals())
+del _apply_overrides

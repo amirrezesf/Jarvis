@@ -13,7 +13,7 @@ from typing import Iterator
 
 import requests
 
-import config
+from jarvis import config
 
 logger = logging.getLogger(__name__)
 

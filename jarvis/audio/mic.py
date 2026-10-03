@@ -1,9 +1,9 @@
 import numpy as np
 import sounddevice as sd
 
-import config
-from audio.base import AudioSource
-from core.events import Utterance
+from jarvis import config
+from jarvis.audio.base import AudioSource
+from jarvis.core.events import Utterance
 
 
 class MicSource(AudioSource):

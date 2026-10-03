@@ -23,10 +23,10 @@ import time
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
-from core.events import Decision
-from core.logger import setup_logging
-from core.pipeline import ListenerPipeline
-from core.state import InstructionState
+from jarvis.core.events import Decision
+from jarvis.core.logger import setup_logging
+from jarvis.core.pipeline import ListenerPipeline
+from jarvis.core.state import InstructionState
 
 
 def _describe(decisions: list[Decision]) -> str:

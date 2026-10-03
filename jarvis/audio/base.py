@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from core.events import Utterance
+from jarvis.core.events import Utterance
 
 class AudioSource(ABC):
     @abstractmethod

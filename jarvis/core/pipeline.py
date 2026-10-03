@@ -14,11 +14,12 @@ import re
 import time
 from datetime import datetime
 
-import config
-from core.events import Decision, InstructionRecord, TriggerEvent
-from core.extraction import Extractor, ExtractionError
-from core.state import InstructionState
-from core.triggers import (
+from jarvis import config
+from jarvis.core.context import StudentContext
+from jarvis.core.events import Decision, InstructionRecord, TriggerEvent
+from jarvis.core.extraction import Extractor, ExtractionError
+from jarvis.core.state import InstructionState
+from jarvis.core.triggers import (
     NameDetector,
     _score_variant,
     normalize as _norm,
@@ -33,12 +34,13 @@ class ListenerPipeline:
         extractor: Extractor | None = None,
         detector: NameDetector | None = None,
         state: InstructionState | None = None,
+        context: StudentContext | None = None,
     ) -> None:
         self.extractor = extractor or Extractor()
         self.detector = detector or NameDetector()
         self.state = state or InstructionState()
         self._window: list[str] = []
-
+        self.context = context or StudentContext.from_config()
     # ------------------------------------------------------------------
     def feed(self, segment: str) -> list[Decision]:
         """Process one transcript segment. Returns any decisions produced."""
@@ -58,7 +60,7 @@ class ListenerPipeline:
             extract_seconds = 0.0
         else:
             try:
-                records = self.extractor.extract(self._window)
+                records = self.extractor.extract(self._window, self.context)
             except ExtractionError as exc:
                 logger.error("Extraction failed: %s", exc)
                 records = []

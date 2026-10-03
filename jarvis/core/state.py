@@ -12,8 +12,8 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-import config
-from core.events import InstructionRecord
+from jarvis import config
+from jarvis.core.events import InstructionRecord
 
 logger = logging.getLogger(__name__)
 
