@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "jarvis-listener"
 version = "0.1.0"
 description = "Local voice assistant listener for SkyroomBot"
+license = { text = "MIT" }
 requires-python = ">=3.12"
 dependencies = [
     "faster-whisper>=1.0",

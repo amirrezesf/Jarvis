@@ -1,5 +1,4 @@
 WHISPER_MODEL: str = "large-v3-turbo"
-WHISPER_MODEL: str = "large-v3-turbo"
 DEVICE: str = "cuda"
 COMPUTE_TYPE: str = "float16"
 LANGUAGE: str = "fa"
@@ -15,7 +14,7 @@ SAVE_RECORDINGS = True
 NINEROUTER_URL = "http://localhost:20128/v1"
 
 # API key from the 9Router dashboard (empty string if auth is disabled)
-NINEROUTER_KEY = "sk-16169c59be78df59-j6oo6q-208b8c24"
+NINEROUTER_KEY = ""
 
 # The name of the Combo you created in the 9Router dashboard
 NINEROUTER_COMBO_NAME = "opencode"
